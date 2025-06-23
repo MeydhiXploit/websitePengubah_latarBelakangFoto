@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengubah Latar Belakang Foto</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .custom-shadow {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .btn {
+            transition: all 0.2s ease-in-out;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .color-box {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .color-box.active, .color-box:hover {
+            border-color: #3b82f6; /* blue-500 */
+            transform: scale(1.1);
+        }
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            padding-top: 75%; /* 4:3 Aspect Ratio */
+            background-color: #f3f4f6;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-4xl bg-white rounded-lg custom-shadow p-6 md:p-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        <!-- Kolom Kiri: Kontrol & Upload -->
+        <div class="flex flex-col space-y-6">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Pengubah Latar Belakang Foto</h1>
+                <p class="text-gray-600 mt-2">Unggah foto, pilih warna latar belakang baru, dan unduh hasilnya.</p>
+            </div>
+
+            <!-- Langkah 1: Upload -->
+            <div class="space-y-3">
+                <label class="text-lg font-semibold text-gray-700">Langkah 1: Unggah Foto Anda</label>
+                <div class="relative">
+                    <input type="file" id="imageLoader" accept="image/*" class="relative z-10 w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"/>
+                </div>
+                 <p id="instruction" class="text-sm text-gray-500 italic hidden">Klik pada area latar belakang di gambar untuk menghapusnya.</p>
+            </div>
+
+            <!-- Langkah 2: Ganti Background -->
+            <div class="space-y-4">
+                <h2 class="text-lg font-semibold text-gray-700">Langkah 2: Pilih Warna Latar</h2>
+                <div class="flex items-center space-x-4">
+                    <div id="color-red" class="color-box bg-red-500" data-color="#ef4444"></div>
+                    <div id="color-blue" class="color-box bg-blue-500" data-color="#3b82f6"></div>
+                    <div id="color-green" class="color-box bg-green-500" data-color="#22c55e"></div>
+                    <div class="relative">
+                        <label for="customColor" class="w-10 h-10 rounded-full flex items-center justify-center bg-gray-200 cursor-pointer border-2 border-dashed border-gray-400 text-gray-500 text-xl hover:bg-gray-300">+</label>
+                        <input type="color" id="customColor" value="#ffffff" class="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Langkah 3: Atur Toleransi -->
+            <div class="space-y-3">
+                <label for="tolerance" class="text-lg font-semibold text-gray-700">Langkah 3: Sesuaikan Toleransi</label>
+                <input type="range" id="tolerance" min="0" max="200" value="20" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                 <p class="text-sm text-gray-500">Geser untuk mengatur seberapa banyak warna latar yang dihapus.</p>
+            </div>
+
+            <!-- Tombol Download -->
+            <div>
+                <button id="downloadBtn" class="w-full btn bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none" disabled>
+                    Unduh Gambar
+                </button>
+            </div>
+        </div>
+
+        <!-- Kolom Kanan: Canvas/Preview -->
+        <div class="flex items-center justify-center">
+            <div id="canvas-container" class="border-2 border-dashed border-gray-300 flex items-center justify-center">
+                 <span id="canvas-placeholder" class="text-gray-500">Pratinjau Gambar</span>
+                <canvas id="canvas"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const imageLoader = document.getElementById('imageLoader');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const toleranceSlider = document.getElementById('tolerance');
+        const instruction = document.getElementById('instruction');
+        const canvasPlaceholder = document.getElementById('canvas-placeholder');
+
+        let originalImage = null;
+        let keyColor = { r: 255, g: 255, b: 255 }; // Default to white
+        let backgroundColor = '#3b82f6'; // Default to blue
+        let activeColorEl = document.getElementById('color-blue');
+        activeColorEl.classList.add('active');
+
+
+        // Event listener for image upload
+        imageLoader.addEventListener('change', e => {
+            const reader = new FileReader();
+            reader.onload = event => {
+                originalImage = new Image();
+                originalImage.onload = () => {
+                    // Adjust canvas size to match image aspect ratio
+                    const container = document.getElementById('canvas-container');
+                    const containerWidth = container.clientWidth;
+                    const scale = containerWidth / originalImage.width;
+                    const containerHeight = originalImage.height * scale;
+                    
+                    container.style.paddingTop = '0';
+                    container.style.height = `${containerHeight}px`;
+
+                    canvas.width = originalImage.width;
+                    canvas.height = originalImage.height;
+
+                    // Set initial key color from top-left corner
+                    ctx.drawImage(originalImage, 0, 0);
+                    const pixelData = ctx.getImageData(0, 0, 1, 1).data;
+                    keyColor = { r: pixelData[0], g: pixelData[1], b: pixelData[2] };
+                    
+                    processImage();
+                    downloadBtn.disabled = false;
+                    instruction.classList.remove('hidden');
+                    canvasPlaceholder.classList.add('hidden');
+                }
+                originalImage.src = event.target.result;
+            }
+            if(e.target.files[0]) {
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+
+        // Event listener for picking color from canvas
+        canvas.addEventListener('click', e => {
+            if (!originalImage) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            
+            // Draw original image temporarily to get accurate color
+            ctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
+            const pixelData = ctx.getImageData(x, y, 1, 1).data;
+            keyColor = { r: pixelData[0], g: pixelData[1], b: pixelData[2] };
+            
+            processImage();
+        });
+
+        // Event listener for tolerance slider
+        toleranceSlider.addEventListener('input', () => {
+            if (originalImage) {
+                processImage();
+            }
+        });
+
+        // Event listeners for color pickers
+        document.querySelectorAll('.color-box').forEach(box => {
+            box.addEventListener('click', () => {
+                if (activeColorEl) {
+                    activeColorEl.classList.remove('active');
+                }
+                backgroundColor = box.dataset.color;
+                box.classList.add('active');
+                activeColorEl = box;
+                if(originalImage) processImage();
+            });
+        });
+        
+        const customColorInput = document.getElementById('customColor');
+        customColorInput.addEventListener('input', (e) => {
+            if (activeColorEl) {
+                activeColorEl.classList.remove('active');
+                activeColorEl = null;
+            }
+            backgroundColor = e.target.value;
+            if(originalImage) processImage();
+        });
+
+
+        function processImage() {
+            if (!originalImage) return;
+
+            const tolerance = toleranceSlider.value;
+            
+            // 1. Fill canvas with the new background color
+            ctx.fillStyle = backgroundColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 2. Draw the original image to get its pixel data
+            ctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+
+            // 3. Make pixels transparent if they match the key color within tolerance
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+
+                const distance = Math.sqrt(
+                    Math.pow(r - keyColor.r, 2) +
+                    Math.pow(g - keyColor.g, 2) +
+                    Math.pow(b - keyColor.b, 2)
+                );
+
+                if (distance < tolerance) {
+                    // Set alpha to 0 to make the pixel transparent
+                    data[i + 3] = 0;
+                }
+            }
+
+            // 4. Clear canvas and redraw with the new background and processed image
+            ctx.fillStyle = backgroundColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.putImageData(imageData, 0, 0);
+        }
+        
+        // Event listener for download button
+        downloadBtn.addEventListener('click', () => {
+            if (!originalImage) return;
+            const link = document.createElement('a');
+            link.download = 'edited-image.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+    </script>
+
+</body>
+</html>
