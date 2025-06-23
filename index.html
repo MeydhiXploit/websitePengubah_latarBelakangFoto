@@ -216,7 +216,15 @@
         // Update hex value displays
         colorToRemovePicker.addEventListener('input', (e) => colorToRemoveHex.textContent = e.target.value);
         newColorPicker.addEventListener('input', (e) => newColorHex.textContent = e.target.value);
-        toleranceSlider.addEventListener('input', (e) => toleranceValueSpan.textContent = e.target.value);
+        
+        // Tolerance slider now updates in real-time
+        toleranceSlider.addEventListener('input', (e) => {
+            toleranceValueSpan.textContent = e.target.value;
+            // Apply changes immediately if an image is loaded
+            if (originalImage) {
+                applyColorReplacement();
+            }
+        });
         
         // Process button functionality
         processBtn.addEventListener('click', () => {
