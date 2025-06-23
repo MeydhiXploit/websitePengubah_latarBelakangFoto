@@ -3,226 +3,306 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pengubah Latar Belakang Foto (AI)</title>
+    <title>Penghapus & Pengganti Background Warna</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Memuat library AI untuk menghapus background -->
-    <script src="https://cdn.jsdelivr.net/npm/@imgly/background-removal/dist/bundle.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
         }
-        .custom-shadow {
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-        .btn {
-            transition: all 0.2s ease-in-out;
-        }
-        .btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        .color-box {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            cursor: pointer;
-            border: 3px solid transparent;
-            transition: all 0.2s ease;
-        }
-        .color-box.active, .color-box:hover {
-            border-color: #3b82f6; /* blue-500 */
-            transform: scale(1.1);
-        }
-        #canvas-container {
-            position: relative;
-            width: 100%;
-            max-width: 500px;
-            margin: 0 auto;
-            background-color: #f3f4f6;
-            border-radius: 0.5rem;
-            overflow: hidden;
-        }
-        canvas {
-            display: block;
-            width: 100%;
-            height: auto;
+        .canvas-container {
+            cursor: crosshair;
+            border: 2px dashed #4a5568;
         }
         .loader {
-            border: 4px solid #f3f3f3;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
             border-radius: 50%;
-            border-top: 4px solid #3498db;
-            width: 40px;
-            height: 40px;
-            animation: spin 2s linear infinite;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 140px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -70px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        input[type="color"]::-webkit-color-swatch {
+            border: none;
+            border-radius: 0.25rem;
+        }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800 flex items-center justify-center min-h-screen p-4">
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen p-4">
+    <div class="w-full max-w-7xl bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-10 space-y-8">
+        <!-- Header -->
+        <div class="text-center">
+            <h1 class="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-teal-300">Penghapus & Pengganti Background Warna</h1>
+            <p class="text-gray-400 mt-2">Unggah gambar, pilih warna untuk dihapus, dan ganti dengan yang baru.</p>
+        </div>
 
-    <div class="w-full max-w-4xl bg-white rounded-lg custom-shadow p-6 md:p-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
-        <!-- Kolom Kiri: Kontrol & Upload -->
-        <div class="flex flex-col space-y-6">
-            <div>
-                <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Pengubah Latar Belakang (AI)</h1>
-                <p class="text-gray-600 mt-2">Unggah foto, hapus latar belakang secara otomatis, lalu pilih warna baru.</p>
+        <!-- Controls and Upload -->
+        <div class="bg-gray-700 p-6 rounded-xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-center">
+            <!-- Upload Button -->
+            <div class="flex items-center justify-center col-span-1 lg:col-span-1">
+                <label for="imageLoader" class="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-transform transform hover:scale-105 shadow-lg w-full text-center">
+                    Unggah Gambar
+                </label>
+                <input type="file" id="imageLoader" name="imageLoader" class="hidden"/>
             </div>
 
-            <!-- Langkah 1: Upload -->
-            <div class="space-y-3">
-                <label class="text-lg font-semibold text-gray-700">Langkah 1: Unggah Foto</label>
-                <div class="relative">
-                    <input type="file" id="imageLoader" accept="image/*" class="relative z-10 w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"/>
+            <!-- Main Controls -->
+            <div class="col-span-1 md:col-span-2 lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-4 items-center">
+                <!-- Color to Remove -->
+                <div class="flex flex-col items-center space-y-2">
+                    <label for="colorToRemove" class="text-sm font-medium text-gray-300">Warna Dihapus</label>
+                    <div class="relative">
+                        <input type="color" id="colorToRemove" value="#00ff00" class="w-14 h-14 p-1 bg-gray-600 rounded-md cursor-pointer">
+                        <div id="colorToRemoveHex" class="text-center text-xs mt-1 text-gray-400">#00ff00</div>
+                    </div>
+                </div>
+
+                <!-- Tolerance -->
+                <div class="flex flex-col items-center space-y-2">
+                     <label for="tolerance" class="text-sm font-medium text-gray-300">Toleransi (<span id="toleranceValue">100</span>)</label>
+                    <input type="range" id="tolerance" min="0" max="255" value="100" class="w-full cursor-pointer">
+                </div>
+
+                <!-- New Color -->
+                <div class="flex flex-col items-center space-y-2">
+                    <label for="newColor" class="text-sm font-medium text-gray-300">Warna Baru</label>
+                    <div class="relative">
+                        <input type="color" id="newColor" value="#ff00ff" class="w-14 h-14 p-1 bg-gray-600 rounded-md cursor-pointer">
+                        <div id="newColorHex" class="text-center text-xs mt-1 text-gray-400">#ff00ff</div>
+                    </div>
+                </div>
+                 <!-- Action Buttons -->
+                <div class="flex flex-col space-y-2">
+                    <button id="processBtn" class="bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2 px-4 rounded-lg transition shadow-md w-full">Proses</button>
+                    <button id="downloadBtn" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition shadow-md w-full">Unduh</button>
                 </div>
             </div>
+        </div>
 
-            <!-- Langkah 2: Ganti Background -->
-            <div id="controls" class="space-y-4 hidden">
-                 <h2 class="text-lg font-semibold text-gray-700">Langkah 2: Pilih Warna Latar</h2>
-                 <div class="flex items-center space-x-4">
-                    <div id="color-red" class="color-box bg-red-500" data-color="#ef4444"></div>
-                    <div id="color-blue" class="color-box bg-blue-500" data-color="#3b82f6"></div>
-                    <div id="color-green" class="color-box bg-green-500" data-color="#22c55e"></div>
-                    <div class="relative">
-                        <label for="customColor" class="w-10 h-10 rounded-full flex items-center justify-center bg-gray-200 cursor-pointer border-2 border-dashed border-gray-400 text-gray-500 text-xl hover:bg-gray-300">+</label>
-                        <input type="color" id="customColor" value="#ffffff" class="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer">
+        <!-- Canvas Area -->
+        <div id="canvas-wrapper" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                <!-- Original Image -->
+                <div class="space-y-3">
+                    <h2 class="text-xl font-semibold text-center text-gray-300">Gambar Asli</h2>
+                    <p class="text-sm text-center text-gray-400">Klik pada gambar untuk memilih warna yang akan dihapus.</p>
+                    <div class="canvas-container bg-gray-700/50 rounded-lg overflow-hidden">
+                        <canvas id="originalCanvas"></canvas>
                     </div>
-                 </div>
+                </div>
+                <!-- Result Image -->
+                <div class="space-y-3">
+                    <h2 class="text-xl font-semibold text-center text-gray-300">Hasil</h2>
+                    <p class="text-sm text-center text-gray-500">(Pratinjau hasil akhir)</p>
+                     <div class="canvas-container bg-gray-700/50 rounded-lg overflow-hidden">
+                        <canvas id="resultCanvas"></canvas>
+                    </div>
+                </div>
             </div>
+        </div>
+        
+        <!-- Placeholder / Instructions -->
+        <div id="placeholder" class="text-center py-16 px-6 bg-gray-700/50 rounded-xl border-2 border-dashed border-gray-600">
+             <svg class="mx-auto h-12 w-12 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <h3 class="mt-4 text-lg font-medium text-gray-300">Belum ada gambar</h3>
+            <p class="mt-1 text-sm text-gray-400">Silakan unggah gambar untuk memulai.</p>
+        </div>
 
-            <!-- Tombol Download -->
-            <div>
-                <button id="downloadBtn" class="w-full btn bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
-                    Unduh Gambar
-                </button>
+        <!-- Loading Spinner -->
+        <div id="loading" class="hidden absolute inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
+            <div class="flex flex-col items-center">
+                <div class="loader"></div>
+                <p class="mt-4 text-lg">Memproses gambar...</p>
             </div>
         </div>
 
-        <!-- Kolom Kanan: Canvas/Preview -->
-        <div class="flex flex-col items-center justify-center bg-gray-50 p-4 rounded-lg min-h-[300px]">
-            <div id="canvas-container">
-                 <canvas id="canvas"></canvas>
-            </div>
-            <div id="status" class="mt-4 text-center">
-                 <p id="status-text" class="text-gray-500">Silakan unggah gambar untuk memulai.</p>
-                 <div id="loader" class="loader hidden mx-auto"></div>
-            </div>
-        </div>
     </div>
 
     <script>
-        // Ambil elemen dari DOM
         const imageLoader = document.getElementById('imageLoader');
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
+        const originalCanvas = document.getElementById('originalCanvas');
+        const resultCanvas = document.getElementById('resultCanvas');
+        const originalCtx = originalCanvas.getContext('2d', { willReadFrequently: true });
+        const resultCtx = resultCanvas.getContext('2d');
+        const colorToRemovePicker = document.getElementById('colorToRemove');
+        const newColorPicker = document.getElementById('newColor');
+        const toleranceSlider = document.getElementById('tolerance');
+        const toleranceValueSpan = document.getElementById('toleranceValue');
+        const processBtn = document.getElementById('processBtn');
         const downloadBtn = document.getElementById('downloadBtn');
-        const controls = document.getElementById('controls');
-        const statusText = document.getElementById('status-text');
-        const loader = document.getElementById('loader');
-        
-        // Variabel untuk menyimpan gambar
-        let foregroundImage = null; 
-        let backgroundColor = '#3b82f6'; // Warna default biru
-        
-        // Inisialisasi warna aktif
-        let activeColorEl = document.getElementById('color-blue');
-        activeColorEl.classList.add('active');
+        const colorToRemoveHex = document.getElementById('colorToRemoveHex');
+        const newColorHex = document.getElementById('newColorHex');
+        const loadingIndicator = document.getElementById('loading');
+        const placeholder = document.getElementById('placeholder');
+        const canvasWrapper = document.getElementById('canvas-wrapper');
 
-        // Fungsi utama untuk menggambar ulang canvas
-        function drawCanvas() {
-            if (!foregroundImage) return;
+        let originalImage = null;
 
-            // Atur ukuran canvas sesuai gambar
-            canvas.width = foregroundImage.width;
-            canvas.height = foregroundImage.height;
-
-            // 1. Isi canvas dengan warna latar belakang yang dipilih
-            ctx.fillStyle = backgroundColor;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // 2. Gambar hasil foto (yang sudah tanpa background) di atasnya
-            ctx.drawImage(foregroundImage, 0, 0);
-            
-            // Aktifkan tombol download
-            downloadBtn.disabled = false;
-        }
-
-        // Event listener ketika pengguna mengunggah file
-        imageLoader.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            // Reset state
-            downloadBtn.disabled = true;
-            controls.classList.add('hidden');
-            loader.classList.remove('hidden');
-            statusText.textContent = 'Menghapus latar belakang... Proses ini mungkin perlu beberapa saat.';
-
-            try {
-                // Gunakan library AI untuk menghapus latar belakang
-                // 'removeBackground' adalah fungsi dari library yg kita load di <head>
-                const imageBlob = await removeBackground(file);
-                
-                // Buat objek gambar dari hasil proses AI
-                const url = URL.createObjectURL(imageBlob);
-                foregroundImage = new Image();
-                foregroundImage.onload = () => {
-                    // Sembunyikan loader dan tampilkan kontrol warna
-                    loader.classList.add('hidden');
-                    statusText.textContent = 'Pilih warna latar belakang Anda.';
-                    controls.classList.remove('hidden');
+        // Event listener for file upload
+        imageLoader.addEventListener('change', (e) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                originalImage = new Image();
+                originalImage.onload = () => {
+                    // Show canvas and hide placeholder
+                    placeholder.classList.add('hidden');
+                    canvasWrapper.classList.remove('hidden');
                     
-                    // Gambar hasilnya ke canvas
-                    drawCanvas();
-                    URL.revokeObjectURL(url);
-                };
-                foregroundImage.src = url;
+                    // Adjust canvas size to fit the container while maintaining aspect ratio
+                    const maxWidth = originalCanvas.parentElement.clientWidth;
+                    const scale = maxWidth / originalImage.width;
+                    const newWidth = originalImage.width * scale;
+                    const newHeight = originalImage.height * scale;
+                    
+                    originalCanvas.width = resultCanvas.width = newWidth;
+                    originalCanvas.height = resultCanvas.height = newHeight;
 
-            } catch (error) {
-                console.error('Gagal memproses gambar:', error);
-                loader.classList.add('hidden');
-                statusText.textContent = 'Maaf, terjadi kesalahan saat memproses gambar. Coba gambar lain.';
+                    // Draw the image on both canvases initially
+                    originalCtx.drawImage(originalImage, 0, 0, newWidth, newHeight);
+                    resultCtx.drawImage(originalImage, 0, 0, newWidth, newHeight);
+                };
+                originalImage.src = event.target.result;
+            };
+            if (e.target.files[0]) {
+                reader.readAsDataURL(e.target.files[0]);
             }
         });
 
-        // Event listener untuk palet warna
-        document.querySelectorAll('.color-box').forEach(box => {
-            box.addEventListener('click', () => {
-                if (activeColorEl) {
-                    activeColorEl.classList.remove('active');
-                }
-                backgroundColor = box.dataset.color;
-                box.classList.add('active');
-                activeColorEl = box;
-                drawCanvas(); // Gambar ulang dengan warna baru
-            });
+        // Eyedropper functionality on original canvas
+        originalCanvas.addEventListener('click', (e) => {
+            const rect = originalCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const pixel = originalCtx.getImageData(x, y, 1, 1).data;
+            const hexColor = rgbToHex(pixel[0], pixel[1], pixel[2]);
+            colorToRemovePicker.value = hexColor;
+            colorToRemoveHex.textContent = hexColor;
+        });
+
+        // Update hex value displays
+        colorToRemovePicker.addEventListener('input', (e) => colorToRemoveHex.textContent = e.target.value);
+        newColorPicker.addEventListener('input', (e) => newColorHex.textContent = e.target.value);
+        toleranceSlider.addEventListener('input', (e) => toleranceValueSpan.textContent = e.target.value);
+        
+        // Process button functionality
+        processBtn.addEventListener('click', () => {
+            if (!originalImage) {
+                alert("Silakan unggah gambar terlebih dahulu.");
+                return;
+            }
+            
+            showLoading(true);
+
+            // Use a short timeout to allow the UI to update and show the loader
+            setTimeout(() => {
+                applyColorReplacement();
+                showLoading(false);
+            }, 50);
+
         });
         
-        // Event listener untuk pemilih warna custom
-        const customColorInput = document.getElementById('customColor');
-        customColorInput.addEventListener('input', (e) => {
-            if (activeColorEl) {
-                activeColorEl.classList.remove('active');
-                activeColorEl = null;
-            }
-            backgroundColor = e.target.value;
-            drawCanvas(); // Gambar ulang dengan warna custom
-        });
-
-        // Event listener untuk tombol download
+        // Download button functionality
         downloadBtn.addEventListener('click', () => {
-            if (!foregroundImage) return;
+            if (!originalImage) {
+                alert("Tidak ada gambar untuk diunduh.");
+                return;
+            }
             const link = document.createElement('a');
-            const fileName = 'background-changed.png';
-            link.download = fileName;
-            link.href = canvas.toDataURL('image/png');
+            link.download = 'hasil-edit.png';
+            link.href = resultCanvas.toDataURL('image/png');
             link.click();
         });
+
+        function applyColorReplacement() {
+             const width = originalCanvas.width;
+            const height = originalCanvas.height;
+
+            // Redraw the original image to the result canvas to start fresh
+            resultCtx.drawImage(originalImage, 0, 0, width, height);
+
+            const imageData = resultCtx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+            
+            const colorToRemoveRGB = hexToRgb(colorToRemovePicker.value);
+            const newColorRGB = hexToRgb(newColorPicker.value);
+            const tolerance = parseInt(toleranceSlider.value, 10);
+
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+
+                // Calculate color distance
+                const distance = Math.sqrt(
+                    Math.pow(r - colorToRemoveRGB.r, 2) +
+                    Math.pow(g - colorToRemoveRGB.g, 2) +
+                    Math.pow(b - colorToRemoveRGB.b, 2)
+                );
+
+                if (distance <= tolerance) {
+                    // Replace color
+                    data[i] = newColorRGB.r;
+                    data[i + 1] = newColorRGB.g;
+                    data[i + 2] = newColorRGB.b;
+                    // Keep alpha the same, or set to 255 for full opacity
+                    // data[i + 3] = 255;
+                }
+            }
+            resultCtx.putImageData(imageData, 0, 0);
+        }
+        
+        function showLoading(show) {
+            loadingIndicator.style.display = show ? 'flex' : 'none';
+        }
+
+        // --- Helper Functions ---
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
+        
+        function rgbToHex(r, g, b) {
+            return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+        }
+
     </script>
 </body>
 </html>
